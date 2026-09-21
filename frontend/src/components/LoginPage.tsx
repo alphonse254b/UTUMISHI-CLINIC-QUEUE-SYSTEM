@@ -131,6 +131,10 @@ export default function LoginPage({ isEmbedded = false, isAdmin = false, onOverr
         )}
 
         {error && <div className="mt-4 bg-red-50 text-red-700 text-xs rounded px-4 py-3 font-medium">{error}</div>}
+        <div className="flex justify-between items-center mt-2 text-xs">
+          <button type="button" onClick={() => window.location.href = '/reset-password'} className="text-indigo-700 hover:underline">Forgot password?</button>
+          <div />
+        </div>
 
         <button
           type="submit"

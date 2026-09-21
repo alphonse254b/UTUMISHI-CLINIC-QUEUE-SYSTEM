@@ -8,9 +8,18 @@ import BillingForm from './components/Billing';
 import PharmacyDispense from './components/Pharmacy';
 import StaffAdmin from './components/StaffAdmin';
 import LoginPage from './components/LoginPage';
+import ResetPassword from './components/ResetPassword';
 import { TAB_LABELS } from './config/permissions';
 import type { Tab } from './config/permissions';
+import * as signalR from '@microsoft/signalr';
 
+function anonymize(fullName?: string | null): string {
+  if (!fullName) return 'Patient';
+  const parts = fullName.trim().split(/\s+/);
+  const first = parts[0]?.[0] ?? '';
+  const last = parts[parts.length - 1]?.[0] ?? '';
+  return `${first}${last}.`;
+}
 
 (() => {
   void Reception;
@@ -48,10 +57,24 @@ export default function App() {
   });
 
   useEffect(() => {
-    refreshAllData();
-    const interval = setInterval(refreshAllData, 10000);
-    return () => clearInterval(interval);
-  }, []);
+  refreshAllData();
+
+  const connection = new signalR.HubConnectionBuilder()
+    .withUrl('http://localhost:5250/hubs/queue')
+    .withAutomaticReconnect()
+    .build();
+
+  connection.on('QueueUpdated', refreshAllData);
+  connection.start().catch(err => console.error('SignalR connection failed:', err));
+
+  // Safety-net poll, much less frequent now that SignalR does the real work
+  const interval = setInterval(refreshAllData, 60000);
+
+  return () => {
+    clearInterval(interval);
+    connection.stop();
+  };
+}, []);
 
   const refreshAllData = async () => {
     try {
@@ -208,6 +231,11 @@ export default function App() {
             }
 
             // Default dashboard / workstation rendering
+            const pathname = window.location.pathname || '/';
+            if (pathname.startsWith('/reset-password')) {
+              return <ResetPassword />;
+            }
+
             return (
               <div>
                 {currentTab === 'dashboard' && (
@@ -226,7 +254,7 @@ export default function App() {
                         <div className="mt-4 space-y-1">
                           {visitsAwaitingTriage.map(v => (
                             <div key={v.visitId} className="p-2 bg-gray-50 border rounded text-xs flex justify-between">
-                              <span>{v.patient?.fullName}</span>
+                              <span>{anonymize(v.patient?.fullName)}</span>
                               <span className="font-bold">{v.ticketNumber}</span>
                             </div>
                           ))}
@@ -239,7 +267,7 @@ export default function App() {
                         <div className="mt-4 space-y-1">
                           {visitsAwaitingDoctor.map(v => (
                             <div key={v.visitId} className="p-2 bg-gray-50 border rounded text-xs flex justify-between">
-                              <span>{v.patient?.fullName}</span>
+                              <span>{anonymize(v.patient?.fullName)}</span>
                               <span className="font-bold text-emerald-700">{v.ticketNumber}</span>
                             </div>
                           ))}
@@ -252,7 +280,7 @@ export default function App() {
                         <div className="mt-4 space-y-1">
                           {visitsAwaitingBilling.map(v => (
                             <div key={v.visitId} className="p-2 bg-gray-50 border rounded text-xs flex justify-between">
-                              <span>{v.patient?.fullName}</span>
+                              <span>{anonymize(v.patient?.fullName)}</span>
                               <span className="font-bold">{v.ticketNumber}</span>
                             </div>
                           ))}

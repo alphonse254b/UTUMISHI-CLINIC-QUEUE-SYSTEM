@@ -3,6 +3,7 @@ import { api } from '../services/api';
 import type { Staff, Department } from '../types';
 import SetCredentialsButton from './SetCredentialsButton';
 import RolesAdmin from './RolesAdmin';
+import DepartmentAdmin from './departmentAdmin';
 
 
 interface Role {
@@ -15,7 +16,7 @@ interface Props {
 }
 
 export default function StaffAdmin({ session }: Props) {
-  const [view, setView] = useState<'staff' | 'roles'>('staff');
+  const [view, setView] = useState<'staff' | 'roles' | 'departments'>('staff');
   const [staff, setStaff] = useState<Staff[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -73,10 +74,18 @@ export default function StaffAdmin({ session }: Props) {
         >
           Roles
         </button>
+        <button
+          onClick={() => setView('departments')}
+          className={`px-4 py-2 text-sm font-semibold rounded ${view === 'departments' ? 'bg-indigo-100 text-indigo-950' : 'text-gray-600 hover:bg-gray-100'}`}
+        >
+          Departments
+        </button>
       </div>
 
       {view === 'roles' ? (
         <RolesAdmin />
+      ) : view === 'departments' ? (
+        <DepartmentAdmin />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* List Staff */}

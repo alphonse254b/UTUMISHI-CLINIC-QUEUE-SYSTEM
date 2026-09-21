@@ -150,6 +150,10 @@ export const api = {
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify(data)
     }).then(r => handleResponse<void>(r)),
+    delete: (id: number) => fetch(`${BASE_URL}/Departments/${id}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    }).then(r => handleResponse<void>(r)),
   },
   // Roles
   roles: {

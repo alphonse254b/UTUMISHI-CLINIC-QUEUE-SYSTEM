@@ -94,4 +94,10 @@ export const authApi = {
     return response.json();
   }),
 
+  requestPasswordReset: (body: { emailOrUsername: string }) =>
+    authFetch<any>('/Auth/request-password-reset', { method: 'POST', body: JSON.stringify(body) }),
+
+  resetPassword: (body: { token: string; newPassword: string }) =>
+    authFetch<any>('/Auth/reset-password', { method: 'POST', body: JSON.stringify(body) }),
+
     }
