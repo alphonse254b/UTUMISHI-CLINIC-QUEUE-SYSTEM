@@ -1,25 +1,35 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { api } from '../services/api';
 
 interface Role {
   roleId: number;
   roleName: string;
 }
 
-export default function RolesAdmin() {
+interface Props {
+  token?: string;
+}
+
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5250/api';
+
+export default function RolesAdmin({ token }: Props) {
   const [roles, setRoles] = useState<Role[]>([]);
   const [roleName, setRoleName] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  const authHeaders = (): Record<string, string> =>
+    token ? { Authorization: `Bearer ${token}` } : {};
+
   useEffect(() => {
     loadRoles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadRoles = async () => {
     try {
-      const data = await api.roles.getAll();
-      setRoles(data);
+      const res = await fetch(`${BASE_URL}/Roles`, { headers: authHeaders() });
+      if (!res.ok) throw new Error(`Status ${res.status}`);
+      setRoles(await res.json());
     } catch (err) {
       setError('Error fetching roles');
     }
@@ -29,7 +39,12 @@ export default function RolesAdmin() {
     e.preventDefault();
     if (!roleName.trim()) return;
     try {
-      await api.roles.create({ roleName });
+      const res = await fetch(`${BASE_URL}/Roles`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ roleName }),
+      });
+      if (!res.ok) throw new Error(`Status ${res.status}`);
       setRoleName('');
       loadRoles();
     } catch (err) {
@@ -40,7 +55,11 @@ export default function RolesAdmin() {
   const handleDelete = async (roleId: number) => {
     if (!confirm('Delete this role?')) return;
     try {
-      await api.roles.delete(roleId);
+      const res = await fetch(`${BASE_URL}/Roles/${roleId}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
+      if (!res.ok) throw new Error(`Status ${res.status}`);
       loadRoles();
     } catch (err) {
       alert('Failed to delete role (it may still be assigned to staff)');

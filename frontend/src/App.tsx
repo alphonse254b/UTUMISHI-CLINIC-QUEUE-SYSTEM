@@ -59,18 +59,29 @@ export default function App() {
   useEffect(() => {
   refreshAllData();
 
+  let cancelled = false;
   const connection = new signalR.HubConnectionBuilder()
     .withUrl('http://localhost:5250/hubs/queue')
     .withAutomaticReconnect()
     .build();
 
   connection.on('QueueUpdated', refreshAllData);
-  connection.start().catch(err => console.error('SignalR connection failed:', err));
 
-  // Safety-net poll, much less frequent now that SignalR does the real work
+  // Start on the next tick so StrictMode's instant unmount cancels the timer
+  // before any negotiation begins.
+  const startTimer = setTimeout(() => {
+    if (!cancelled) {
+      connection.start().catch(err => {
+        if (!cancelled) console.error('SignalR connection failed:', err);
+      });
+    }
+  }, 0);
+
   const interval = setInterval(refreshAllData, 60000);
 
   return () => {
+    cancelled = true;
+    clearTimeout(startTimer);
     clearInterval(interval);
     connection.stop();
   };
@@ -140,6 +151,7 @@ export default function App() {
 
   const isTabUserAdmin = extractedRole === 'admin';
   const isAdminTabAccessBlocked = currentTab === 'admin' && isTabAuthenticated && !isTabUserAdmin;
+  {currentTab === 'admin' && <StaffAdmin session={currentTabSession} />}
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">

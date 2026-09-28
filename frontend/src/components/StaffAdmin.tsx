@@ -4,7 +4,7 @@ import type { Staff, Department } from '../types';
 import SetCredentialsButton from './SetCredentialsButton';
 import RolesAdmin from './RolesAdmin';
 import DepartmentAdmin from './departmentAdmin';
-
+import { getTabToken, tokenExpiry } from '../services/tabSession';
 
 interface Role {
   roleId: number;
@@ -15,11 +15,19 @@ interface Props {
   session: any;
 }
 
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5250/api';
+
 export default function StaffAdmin({ session }: Props) {
+  // Prefer the prop, but fall back to the admin tab's stored session so a
+  // missing prop can't silently produce header-less requests.
+  const token: string | undefined = session?.token ?? getTabToken('admin');
+  const effectiveSession = { ...session, token };
+
   const [view, setView] = useState<'staff' | 'roles' | 'departments'>('staff');
   const [staff, setStaff] = useState<Staff[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [authProblem, setAuthProblem] = useState<string | null>(null);
 
   const [newStaff, setNewStaff] = useState({
     staffName: '',
@@ -29,20 +37,46 @@ export default function StaffAdmin({ session }: Props) {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const explainUnauthorized = (): string => {
+    if (!token) {
+      return 'No admin token was sent. Click "Lock Tab" and sign in again on the Admin tab.';
+    }
+    const expiry = tokenExpiry(token);
+    if (expiry && expiry.getTime() < Date.now()) {
+      return `Your admin session expired at ${expiry.toLocaleString()}. Click "Lock Tab" and sign in again.`;
+    }
+    return (
+      'The server rejected an admin token that has not expired. That points to a server-side mismatch: ' +
+      'check that Jwt:Key, Jwt:Issuer and Jwt:Audience in appsettings.json have not changed since you signed in, ' +
+      'restart the backend, then sign in again.'
+    );
+  };
+
   const loadData = async () => {
-  try {
-    const staffList = await api.staff.getAll();
-    const deptList = await api.departments.getAll();
-    const rolesList = await api.roles.getAll();
-    setStaff(staffList);
-    setDepartments(deptList);
-    setRoles(rolesList);
-  } catch (err) {
-    alert('Error fetching administrative structures');
-  }
-};
+    try {
+      const staffList = await api.staff.getAll();
+      const deptList = await api.departments.getAll();
+      setStaff(staffList);
+      setDepartments(deptList);
+
+      const rolesRes = await fetch(`${BASE_URL}/Roles`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (rolesRes.status === 401) {
+        setAuthProblem(explainUnauthorized());
+        return;
+      }
+      if (!rolesRes.ok) throw new Error(`Status ${rolesRes.status}`);
+      setAuthProblem(null);
+      setRoles(await rolesRes.json());
+    } catch (err) {
+      alert('Error fetching administrative structures');
+    }
+  };
+
   const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStaff.departmentId || !newStaff.roleId) {
@@ -61,6 +95,10 @@ export default function StaffAdmin({ session }: Props) {
 
   return (
     <div>
+      {authProblem && (
+        <div className="mb-4 bg-red-50 text-red-700 text-sm rounded px-4 py-3">{authProblem}</div>
+      )}
+
       <div className="flex gap-2 mb-6">
         <button
           onClick={() => setView('staff')}
@@ -83,7 +121,7 @@ export default function StaffAdmin({ session }: Props) {
       </div>
 
       {view === 'roles' ? (
-        <RolesAdmin />
+        <RolesAdmin token={token} />
       ) : view === 'departments' ? (
         <DepartmentAdmin />
       ) : (
@@ -109,7 +147,7 @@ export default function StaffAdmin({ session }: Props) {
                     <td className="p-3 text-gray-600">{s.department?.departmentName || 'N/A'}</td>
                     <td className="p-3 text-gray-600">{s.role?.roleName || 'N/A'}</td>
                     <td className="p-3">
-                     <SetCredentialsButton staffId={s.staffId} staffName={s.staffName} session={session} />
+                      <SetCredentialsButton staffId={s.staffId} staffName={s.staffName} session={effectiveSession} />
                     </td>
                   </tr>
                 ))}

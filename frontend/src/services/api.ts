@@ -168,4 +168,16 @@ export const api = {
       headers: authHeaders(),
     }).then(r => handleResponse<void>(r)),
   },
+  payments: {
+  initiate: (visitId: number, phoneNumber: string, amount: number) =>
+    fetch(`${BASE_URL}/Payments/initiate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ visitId, phoneNumber, amount }),
+    }).then(r => handleResponse<{ mpesaTransactionId: number; message: string }>(r)),
+
+  getStatus: (transactionId: number) =>
+    fetch(`${BASE_URL}/Payments/${transactionId}/status`, { headers: authHeaders() })
+      .then(r => handleResponse<{ status: string; mpesaReceiptNumber: string | null; resultDesc: string | null }>(r)),
+},
 };

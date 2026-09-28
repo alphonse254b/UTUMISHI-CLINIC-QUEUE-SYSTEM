@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { api } from '../services/api';
 import type { Visit } from '../types';
+import MpesaPayment from './MpesaPayment';
 
 interface Props {
   unpaidVisits: Visit[];
@@ -13,7 +14,7 @@ export default function BillingForm({ unpaidVisits, onSuccess }: Props) {
   const [labTestCharge, setLabTestCharge] = useState<number>(0);
   const [medicationCharge, setMedicationCharge] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<string>('Cash');
-
+  const [showMpesa, setShowMpesa] = useState(false);
   const totalBill = consultationCharge + labTestCharge + medicationCharge;
 
   const handlePay = async (e: React.FormEvent) => {
@@ -35,6 +36,7 @@ export default function BillingForm({ unpaidVisits, onSuccess }: Props) {
       setConsultationCharge(1000);
       setLabTestCharge(0);
       setMedicationCharge(0);
+      setShowMpesa(false);
       onSuccess();
     } catch (err) {
       alert('Error updating payment records');
@@ -61,6 +63,7 @@ export default function BillingForm({ unpaidVisits, onSuccess }: Props) {
                     // Autofill medication charges based on number of prescriptions issued
                     const estimatedPrescriptionCost = (v.prescriptions?.length || 0) * 350;
                     setMedicationCharge(estimatedPrescriptionCost);
+                    setShowMpesa(false);
                   }}
                   className={`p-3 border rounded cursor-pointer hover:bg-violet-50 transition-colors ${selectedVisit?.visitId === v.visitId ? 'border-violet-500 bg-violet-50' : 'border-gray-200'}`}
                 >
@@ -138,8 +141,31 @@ export default function BillingForm({ unpaidVisits, onSuccess }: Props) {
                 type="submit"
                 className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-2.5 px-4 rounded transition-colors shadow"
               >
-                Settle Invoice & Issue Official Receipt
+                Settle Invoice & Issue Official Receipt (Cash / Manual)
               </button>
+
+              <div className="pt-2 border-t">
+                {!showMpesa ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowMpesa(true)}
+                    className="w-full bg-green-50 hover:bg-green-100 text-green-800 font-semibold py-2.5 rounded text-sm border border-green-200"
+                  >
+                    Or pay by M-Pesa
+                  </button>
+                ) : (
+                  <MpesaPayment
+                    visitId={selectedVisit.visitId}
+                    amount={totalBill}
+                    onSuccess={(receiptNumber) => {
+                      alert(`M-Pesa payment confirmed. Receipt: ${receiptNumber}`);
+                      setSelectedVisit(null);
+                      setShowMpesa(false);
+                      onSuccess();
+                    }}
+                  />
+                )}
+              </div>
             </form>
           ) : (
             <div className="h-full flex items-center justify-center text-gray-400 italic">
